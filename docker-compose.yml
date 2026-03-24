@@ -1,0 +1,122 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-prepai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prepai_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-prepai_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prepai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.core.celery_app worker --loglevel=info --queues=weather,ml,default
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.core.celery_app beat --loglevel=info --scheduler celery.beat:PersistentScheduler
+
+  flower:
+    image: mher/flower:2.0
+    env_file: .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    environment:
+      REACT_APP_API_URL: http://localhost:8000
+      REACT_APP_MAPBOX_TOKEN: ${MAPBOX_TOKEN:-}
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data:
