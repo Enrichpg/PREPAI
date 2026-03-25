@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
 
+
 @pytest.fixture
 def client():
     """Create a test client with mocked DB and ML model."""

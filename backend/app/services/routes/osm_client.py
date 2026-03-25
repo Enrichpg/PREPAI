@@ -15,6 +15,14 @@ ACORUNA_BBOX = (42.75, -9.30, 43.80, -7.85)
 
 
 class OverpassClient:
+    # Public Overpass instances for fallback
+    OVERPASS_SERVERS = [
+        settings.OVERPASS_API_URL,  # Primary from config
+        "https://overpass.private.coffee/api/interpreter",
+        "https://overpass.osm.ch/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ]
+
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
 
@@ -35,34 +43,63 @@ class OverpassClient:
         retry=retry_if_exception_type(httpx.HTTPError),
     )
     async def query(self, ql: str) -> Optional[Dict]:
-        resp = await self._client.post(
-            settings.OVERPASS_API_URL,
-            data={"data": ql},
-        )
-        resp.raise_for_status()
-        return resp.json()
+        """Try multiple servers if the primary one fails or times out."""
+        last_error = None
+        for url in self.OVERPASS_SERVERS:
+            try:
+                resp = await self._client.post(
+                    url,
+                    data={"data": ql},
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                
+                logger.warning(f"OSM Overpass {url} returned {resp.status_code}")
+                last_error = f"HTTP {resp.status_code} from {url}"
+            except Exception as e:
+                logger.warning(f"OSM Overpass {url} error: {e}")
+                last_error = str(e)
+            
+            # Short wait before trying next server
+            await asyncio.sleep(1)
 
-    async def get_running_routes(self) -> List[Dict]:
-        """Fetch all running/jogging/trail paths in A Coruña province."""
-        s, w, n, e = ACORUNA_BBOX
-        bbox = f"{s},{w},{n},{e}"
+        raise httpx.HTTPError(f"All Overpass servers failed. Last error: {last_error}")
+
+    async def get_running_routes(self, bbox: Tuple[float, float, float, float] = None) -> List[Dict]:
+        """Fetch all running/jogging/trail/pedestrian paths in a given bounding box."""
+        s, w, n, e = bbox or ACORUNA_BBOX
+        bbox_str = f"{s},{w},{n},{e}"
 
         query = f"""
-        [out:json][timeout:120];
+        [out:json][timeout:180];
         (
-          way["highway"~"path|footway|track|cycleway|pedestrian"]["sport"="running"]({bbox});
-          way["route"="running"]({bbox});
-          relation["route"="running"]({bbox});
-          way["highway"="path"]["surface"~"unpaved|gravel|ground|dirt|grass|sand|compacted"]({bbox});
-          way["highway"~"path|footway"]["sac_scale"~"hiking|mountain_hiking"]({bbox});
-          way["leisure"="track"]["sport"="athletics"]({bbox});
+          // 1. Explicitly tagged running/hiking routes
+          way["highway"~"path|footway|track"]["sport"="running"]({bbox_str});
+          way["route"="running"]({bbox_str});
+          relation["route"~"running|hiking|foot"]({bbox_str});
+          
+          // 2. Paths/Tracks in parks, forests or rural areas
+          way["highway"~"path|track"]["surface"~"unpaved|gravel|ground|dirt|grass|sand|compacted|fine_gravel"]({bbox_str});
+          way["highway"~"path|footway"]["sac_scale"]({bbox_str});
+          
+          // 3. Pedestrian areas and major park ways
+          way["highway"="pedestrian"]["area"!="yes"]({bbox_str});
+          way["leisure"~"park|nature_reserve|recreation_ground"]["highway"~"path|footway"]({bbox_str});
+          
+          // 4. Athletics tracks
+          way["leisure"="track"]["sport"=" athletics"]({bbox_str});
+          
+          // 5. Rural residential and unclassified roads (common for running in small towns)
+          way["highway"~"residential|unclassified|tertiary"]["surface"~"asphalt|concrete"]["informal"!="yes"]({bbox_str});
         );
         out body geom;
         >;
         out skel qt;
         """
         data = await self.query(query)
-        return (data or {}).get("elements", [])
+        elements = (data or {}).get("elements", [])
+        logger.info(f"OSM: fetched {len(elements)} elements for bbox {bbox_str}")
+        return elements
 
     async def get_roads_for_running(self, bbox: Tuple = None) -> List[Dict]:
         """Fetch suitable road segments for road running."""

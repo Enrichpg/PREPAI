@@ -16,7 +16,7 @@ const api = axios.create({
 
 // Request interceptor for logging
 api.interceptors.request.use(
-  (config: AxiosRequestConfig) => config,
+  (config: any) => config,
   (error: any) => Promise.reject(error)
 );
 
@@ -95,8 +95,15 @@ export const routesApi = {
   getSavedRoutes: (sessionId: string) =>
     api.get<SavedRoute[]>(`/routes/saved/${sessionId}`).then((r: AxiosResponse<SavedRoute[]>) => r.data),
 
-  getSharedRoute: (shareToken: string) =>
-    api.get<SavedRoute>(`/routes/shared/${shareToken}`).then((r: AxiosResponse<SavedRoute>) => r.data),
+  async getSharedRoute(token: string): Promise<SavedRoute> {
+    const response = await api.get(`/routes/shared/${token}`);
+    return response.data;
+  },
+
+  async geocodeAddress(q: string): Promise<{ lat: number; lon: number; display_name: string }[]> {
+    const response = await api.get('/routes/geocode', { params: { q } });
+    return response.data;
+  },
 
   importOsm: () =>
     api.post('/routes/import/osm').then((r: AxiosResponse<any>) => r.data),

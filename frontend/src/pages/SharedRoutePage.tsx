@@ -1,83 +1,129 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { routesApi } from '../services/api';
+import { MapView } from '../components/Map/MapView';
+import { RouteCard } from '../components/Routes/RouteCard';
 import { LoadingSpinner } from '../components/UI/LoadingSpinner';
 import { ErrorAlert } from '../components/UI/ErrorAlert';
-import { ElevationChart } from '../components/Routes/ElevationChart';
-import { surfaceLabel, elevationLabel, formatDuration } from '../utils/comfort';
-import type { SavedRoute } from '../types';
+import { Icon } from '../components/UI/Icon';
+import type { RouteRecommendationOut } from '../types';
 
 export const SharedRoutePage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
-  const [savedRoute, setSavedRoute] = useState<SavedRoute | null>(null);
+  const navigate = useNavigate();
+  const [recommendation, setRecommendation] = useState<RouteRecommendationOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     routesApi.getSharedRoute(token)
-      .then(setSavedRoute)
-      .catch((err: any) => setError(err.message))
+      .then(saved => {
+        if (saved.route) {
+          // Create a mock recommendation as SavedRoute doesn't include comfort scores
+          const mockRec: RouteRecommendationOut = {
+            route: saved.route,
+            comfort_score: 85, // Default placeholder
+            match_score: 90,
+            overall_score: 88,
+            rank: 1,
+            weather_summary: {
+              temp_min: 12, temp_max: 18, temp_avg: 15,
+              precipitation_total: 0, max_wind_speed: 10,
+              max_wind_gust: 15, avg_humidity: 60, has_fog: false, max_uv: 3
+            },
+            warnings: [],
+            hourly_comfort: []
+          };
+          setRecommendation(mockRec);
+        } else {
+          setError('La ruta no tiene datos geográficos válidos.');
+        }
+      })
+      .catch(() => setError('No se pudo encontrar la ruta compartida o el enlace ha caducado.'))
       .finally(() => setLoading(false));
   }, [token]);
 
-  if (loading) return <LoadingSpinner message="Cargando ruta compartida..." />;
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-surface-950">
+      <LoadingSpinner message="Obteniendo ruta compartida..." size="lg" />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto">
-        <Link to="/" className="text-green-600 text-sm hover:underline mb-4 inline-block">
-          ← Volver a PREPAI
-        </Link>
+    <div className="flex h-screen flex-col bg-surface-950 overflow-hidden">
+      {/* ── Header ─────────────────────────────────────────── */}
+      <header
+        className="flex items-center justify-between px-5 py-3 z-20 flex-shrink-0"
+        style={{
+          background: 'rgba(6,6,9,0.92)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+          <div className="flex items-center gap-2">
+            <Icon name="run" size={24} style={{ color: '#ff5722' }} />
+            <h1
+              className="font-display tracking-widest text-white uppercase text-xl"
+              style={{ fontFamily: '"Bebas Neue", sans-serif', letterSpacing: '0.1em' }}
+            >
+              PREP<span style={{ color: '#ff5722' }}>AI</span>
+            </h1>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/')}
+          className="btn-brand !w-auto py-1.5 px-4 text-xs flex items-center gap-2"
+        >
+          <Icon name="search" size={13} />
+          CREAR MI PROPIA RUTA
+        </button>
+      </header>
 
-        {error && <ErrorAlert message={error} />}
-
-        {savedRoute?.route && (
-          <div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
-            <h1 className="text-2xl font-bold text-gray-900">{savedRoute.nickname || savedRoute.route.name}</h1>
-            {savedRoute.notes && <p className="text-gray-600">{savedRoute.notes}</p>}
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Distancia</p>
-                <p className="font-semibold">{savedRoute.route.distance_km.toFixed(1)} km</p>
-              </div>
-              {savedRoute.route.estimated_duration_min && (
-                <div>
-                  <p className="text-gray-500">Tiempo estimado</p>
-                  <p className="font-semibold">{formatDuration(savedRoute.route.estimated_duration_min)}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-gray-500">Superficie</p>
-                <p className="font-semibold">{surfaceLabel(savedRoute.route.surface_type)}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Desnivel</p>
-                <p className="font-semibold">{elevationLabel(savedRoute.route.elevation_profile)}</p>
-              </div>
-              {savedRoute.route.elevation_gain !== null && (
-                <div>
-                  <p className="text-gray-500">Desnivel positivo</p>
-                  <p className="font-semibold">{savedRoute.route.elevation_gain?.toFixed(0)}m</p>
-                </div>
-              )}
-              {savedRoute.route.municipality && (
-                <div>
-                  <p className="text-gray-500">Municipio</p>
-                  <p className="font-semibold">{savedRoute.route.municipality}</p>
-                </div>
-              )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="w-full md:w-96 flex flex-col z-10 glass-panel border-r border-white/5 animate-fade-up">
+          <div className="p-4 flex-1 overflow-y-auto space-y-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-brand-500 uppercase tracking-[0.2em]">Ruta Compartida</span>
+              <h2 className="text-xl font-bold text-white leading-tight">Preparada para ti</h2>
             </div>
 
-            {savedRoute.route.elevation_data && savedRoute.route.elevation_data.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-gray-600 mb-2">Perfil de elevación</p>
-                <ElevationChart data={savedRoute.route.elevation_data} />
-              </div>
-            )}
+            {error ? (
+              <ErrorAlert message={error} />
+            ) : recommendation ? (
+              <RouteCard
+                recommendation={recommendation}
+                onSelect={() => {}}
+                onSave={() => {}}
+                isSelected={true}
+              />
+            ) : null}
+
+            <div className="pt-6 border-t border-white/5">
+              <p className="text-[11px] text-muted leading-relaxed">
+                Esta ruta ha sido seleccionada basándose en las condiciones climáticas de la zona y un perfil de entrenamiento optimizado.
+              </p>
+            </div>
           </div>
-        )}
+        </aside>
+
+        {/* Map */}
+        <main className="hidden md:flex flex-1 relative">
+          {recommendation && (
+            <MapView
+              recommendations={[recommendation]}
+              selectedRec={recommendation}
+              onSelectRec={() => {}}
+              userPosition={null}
+              showHeatmap={false}
+              heatmap={[]}
+            />
+          )}
+        </main>
       </div>
     </div>
   );

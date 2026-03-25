@@ -13,11 +13,11 @@ class Zone(Base):
     comarca = Column(String(200))
     province = Column(String(100), default="A Coruña")
     # PostGIS geometry: polygon boundary of the zone
-    geom = Column(Geometry("POLYGON", srid=4326))
-    centroid = Column(Geometry("POINT", srid=4326))
-    altitude_min = Column(Float)
-    altitude_max = Column(Float)
-    altitude_mean = Column(Float)
+    geom = Column(Geometry("POLYGON", srid=4326), spatial_index=True)
+    centroid = Column(Geometry("POINT", srid=4326), spatial_index=True)
+    altitude_min = Column(Float, index=True)
+    altitude_max = Column(Float, index=True)
+    altitude_mean = Column(Float, index=True)
     area_km2 = Column(Float)
     description = Column(Text)
 

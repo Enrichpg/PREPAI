@@ -33,9 +33,9 @@ class RunningRoute(Base):
     zone_id = Column(Integer, ForeignKey("zones.id"), nullable=True)
 
     # Geometry: full route as LineString
-    geom = Column(Geometry("LINESTRING", srid=4326))
-    start_point = Column(Geometry("POINT", srid=4326))
-    end_point = Column(Geometry("POINT", srid=4326))
+    geom = Column(Geometry("LINESTRING", srid=4326), spatial_index=True)
+    start_point = Column(Geometry("POINT", srid=4326), spatial_index=True)
+    end_point = Column(Geometry("POINT", srid=4326), spatial_index=True)
 
     # Route metrics
     distance_km = Column(Float, nullable=False)
@@ -46,11 +46,11 @@ class RunningRoute(Base):
     estimated_duration_min = Column(Integer)  # minutes at easy pace
 
     # Classification
-    surface_type = Column(SAEnum(SurfaceType), default=SurfaceType.MIXED)
-    elevation_profile = Column(SAEnum(ElevationProfile), default=ElevationProfile.FLAT)
-    difficulty = Column(String(20))      # easy, medium, hard
+    surface_type = Column(SAEnum(SurfaceType), default=SurfaceType.MIXED, index=True)
+    elevation_profile = Column(SAEnum(ElevationProfile), default=ElevationProfile.FLAT, index=True)
+    difficulty = Column(String(20), index=True)      # easy, medium, hard
     is_loop = Column(Boolean, default=False)
-    is_verified = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False, index=True)
 
     # Elevation profile as JSON array of {distance, altitude} points
     elevation_data = Column(JSON)
@@ -79,9 +79,9 @@ class RouteSegment(Base):
     __tablename__ = "route_segments"
 
     id = Column(Integer, primary_key=True, index=True)
-    route_id = Column(Integer, ForeignKey("running_routes.id"), nullable=False)
+    route_id = Column(Integer, ForeignKey("running_routes.id"), nullable=False, index=True)
     segment_index = Column(Integer, nullable=False)
-    geom = Column(Geometry("LINESTRING", srid=4326))
+    geom = Column(Geometry("LINESTRING", srid=4326), spatial_index=True)
     distance_km = Column(Float)
     elevation_gain = Column(Float)
     surface_type = Column(SAEnum(SurfaceType))

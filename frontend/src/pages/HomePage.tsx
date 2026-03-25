@@ -5,6 +5,7 @@ import { RouteCard } from '../components/Routes/RouteCard';
 import { WeatherDashboard } from '../components/Dashboard/WeatherDashboard';
 import { LoadingSpinner } from '../components/UI/LoadingSpinner';
 import { ErrorAlert } from '../components/UI/ErrorAlert';
+import { Icon } from '../components/UI/Icon';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useHeatmap } from '../hooks/useWeather';
 import { weatherApi, mlApi, routesApi } from '../services/api';
@@ -12,7 +13,25 @@ import { getSessionId } from '../utils/session';
 import type { RouteRecommendationOut, ModelMetrics, DataIngestionLog } from '../types';
 import { format } from 'date-fns';
 
-type Tab = 'search' | 'dashboard' | 'saved';
+type Tab = 'search' | 'dashboard';
+
+/* ── Inline SVG runner logo ─────────────────────────────────── */
+const RunnerLogo: React.FC = () => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    {/* Head */}
+    <circle cx="20" cy="5" r="3" fill="#ff5722" />
+    {/* Body */}
+    <path d="M20 8 L17 14 L13 18" stroke="#ff5722" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Arms */}
+    <path d="M17 12 L22 10 L26 12" stroke="#ff5722" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Back leg */}
+    <path d="M13 18 L10 23 L7 27" stroke="#ff5722" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Front leg */}
+    <path d="M17 14 L20 19 L24 22" stroke="#00e5a0" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Ground line */}
+    <line x1="5" y1="27" x2="28" y2="27" stroke="rgba(255,87,34,0.3)" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
 
 export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('search');
@@ -29,17 +48,15 @@ export const HomePage: React.FC = () => {
   const { recommendations, loading, error, fetchRecommendations, clear } = useRecommendations();
   const { heatmap } = useHeatmap(heatmapDate);
 
-  // Geolocation
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
-        () => {} // silent fail — default to A Coruña
+        () => {}
       );
     }
   }, []);
 
-  // Load dashboard data
   useEffect(() => {
     mlApi.getModelMetrics()
       .then((m: ModelMetrics) => setModelMetrics(m))
@@ -57,7 +74,7 @@ export const HomePage: React.FC = () => {
     const sessionId = getSessionId();
     try {
       const saved = await routesApi.saveRoute(routeId, sessionId);
-      setSaveMessage(`Ruta guardada. Comparte: /shared/${saved.share_token}`);
+      setSaveMessage(`Ruta guardada · /shared/${saved.share_token}`);
       setTimeout(() => setSaveMessage(null), 4000);
     } catch {
       setSaveMessage('Error al guardar la ruta');
@@ -66,58 +83,97 @@ export const HomePage: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-white shadow-sm z-10">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🏃</span>
+    <div className="flex h-screen flex-col overflow-hidden" style={{ background: 'var(--surface-bg)' }}>
+
+      {/* ── Header ─────────────────────────────────────────── */}
+      <header
+        className="flex items-center justify-between px-5 py-3 z-20 flex-shrink-0"
+        style={{
+          background: 'rgba(6,6,9,0.92)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <RunnerLogo />
           <div>
-            <h1 className="font-bold text-gray-900 text-lg leading-tight">PREPAI</h1>
-            <p className="text-xs text-gray-500">Rutas de running · A Coruña</p>
+            <h1
+              className="font-display leading-none tracking-wider"
+              style={{ fontSize: '1.35rem', color: '#f0f0f5', fontFamily: '"Bebas Neue", sans-serif', letterSpacing: '0.12em' }}
+            >
+              PREP<span style={{ color: '#ff5722' }}>AI</span>
+            </h1>
+            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 500 }}>
+              RUTAS DE RUNNING · A CORUÑA
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowHeatmap(h => !h)}
-            className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors
-              ${showHeatmap ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            🌡 Mapa calor
-          </button>
-        </div>
+
+        <button
+          onClick={() => setShowHeatmap(h => !h)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all"
+          style={{
+            background: showHeatmap ? 'rgba(255,87,34,0.15)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${showHeatmap ? 'rgba(255,87,34,0.5)' : 'rgba(255,255,255,0.1)'}`,
+            color: showHeatmap ? '#ff7035' : 'var(--text-secondary)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+          }}
+        >
+          <Icon name="heatmap" size={14} />
+          MAPA CALOR
+        </button>
       </header>
 
-      {/* Save message toast */}
+      {/* ── Toast notification ─────────────────────────────── */}
       {saveMessage && (
-        <div className="absolute top-16 right-4 z-50 bg-green-700 text-white text-sm rounded-lg px-4 py-2 shadow-lg">
+        <div
+          className="absolute top-16 right-4 z-50 text-sm rounded-xl px-4 py-3 shadow-lg animate-fade-up flex items-center gap-2"
+          style={{
+            background: 'linear-gradient(135deg, #10101e, #161628)',
+            border: '1px solid rgba(0,229,160,0.4)',
+            color: '#00e5a0',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          }}
+        >
+          <Icon name="check" size={14} />
           {saveMessage}
         </div>
       )}
 
-      {/* Main layout */}
+      {/* ── Main layout ────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
+
         {/* Sidebar */}
-        <aside className="w-full md:w-96 flex flex-col bg-white shadow-md z-10 overflow-hidden">
+        <aside
+          className="w-full md:w-96 flex flex-col z-10 overflow-hidden glass-panel flex-shrink-0"
+          style={{ borderRight: '1px solid rgba(255,255,255,0.06)', borderTop: 'none' }}
+        >
           {/* Tabs */}
-          <div className="flex border-b border-gray-200">
+          <div
+            className="flex flex-shrink-0"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          >
             {(['search', 'dashboard'] as Tab[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-sm font-medium transition-colors
-                  ${activeTab === tab
-                    ? 'border-b-2 border-green-600 text-green-700'
-                    : 'text-gray-500 hover:text-gray-700'}`}
+                className={`tab-item${activeTab === tab ? ' active' : ''}`}
               >
-                {tab === 'search' ? '🔍 Buscar' : '📊 Datos'}
+                <span className="flex items-center justify-center gap-1.5">
+                  <Icon name={tab === 'search' ? 'search' : 'chart'} size={13} />
+                  {tab === 'search' ? 'Buscar' : 'Datos'}
+                </span>
               </button>
             ))}
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
             {activeTab === 'search' && (
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-4 animate-fade-up">
                 <SearchForm
                   onSearch={fetchRecommendations}
                   loading={loading}
@@ -126,17 +182,20 @@ export const HomePage: React.FC = () => {
                 />
 
                 {error && <ErrorAlert message={error} onDismiss={clear} />}
-
                 {loading && <LoadingSpinner message="Calculando mejores rutas..." />}
 
                 {!loading && recommendations.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 animate-fade-up">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-700 text-sm">
-                        {recommendations.length} rutas recomendadas
-                      </h3>
-                      <button onClick={clear} className="text-xs text-gray-400 hover:text-gray-600">
-                        Limpiar
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.1em' }}>
+                        {recommendations.length} RUTAS RECOMENDADAS
+                      </span>
+                      <button
+                        onClick={clear}
+                        style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
+                        className="hover:text-white transition-colors flex items-center gap-1"
+                      >
+                        <Icon name="close" size={11} /> Limpiar
                       </button>
                     </div>
                     {recommendations.map(rec => (
@@ -152,10 +211,21 @@ export const HomePage: React.FC = () => {
                 )}
 
                 {!loading && !error && recommendations.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-sm">
-                    <p className="text-3xl mb-2">🗺</p>
-                    <p>Usa el formulario para buscar rutas</p>
-                    <p className="text-xs mt-1">adaptadas al clima y tus preferencias</p>
+                  <div className="flex flex-col items-center justify-center py-12 gap-3" style={{ color: 'var(--text-muted)' }}>
+                    {/* Abstract path/route graphic */}
+                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                      <circle cx="32" cy="32" r="30" stroke="rgba(255,87,34,0.12)" strokeWidth="1"/>
+                      <circle cx="32" cy="32" r="22" stroke="rgba(255,87,34,0.08)" strokeWidth="1"/>
+                      <path d="M12 44 C20 36 24 28 32 28 C40 28 44 36 52 28" stroke="rgba(255,87,34,0.35)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                      <circle cx="12" cy="44" r="3" fill="rgba(255,87,34,0.5)"/>
+                      <circle cx="52" cy="28" r="3" fill="rgba(0,229,160,0.5)"/>
+                    </svg>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Define tus preferencias
+                    </p>
+                    <p style={{ fontSize: '0.7rem', textAlign: 'center', lineHeight: 1.5 }}>
+                      El sistema analizará el clima y te<br/>recomendará las rutas óptimas
+                    </p>
                   </div>
                 )}
               </div>
@@ -171,7 +241,7 @@ export const HomePage: React.FC = () => {
           </div>
         </aside>
 
-        {/* Map — hidden on mobile, full width on desktop */}
+        {/* Map area */}
         <main className="hidden md:flex flex-1 relative">
           <MapView
             recommendations={recommendations}
@@ -187,3 +257,5 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+
+

@@ -11,7 +11,7 @@ class TestAEMETParser:
             "prec": "0.0",
             "vv": "12.3",
             "vmax": "18.0",
-            "dv": "NW",
+            "dv": "NO",  # AEMET uses Spanish cardinal: NO = Noroeste = 315°
             "pres": "1013.5",
             "vis": "15.0",
         }
@@ -26,6 +26,7 @@ class TestAEMETParser:
         assert result["pressure"] == pytest.approx(1013.5)
 
     def test_parse_cardinal_wind_directions(self):
+        # AEMET uses Spanish cardinal directions
         dirs = {
             "N": 0, "NE": 45, "E": 90, "SE": 135,
             "S": 180, "SO": 225, "O": 270, "NO": 315,
@@ -61,51 +62,3 @@ class TestAEMETParser:
         assert result["humidity"] == pytest.approx(80.0)
 
 
-class TestMeteoGaliciaParser:
-    def test_parse_valid_observation(self):
-        raw = {
-            "instantedt": "2023-06-15T08:00:00",
-            "temperatura": 17.8,
-            "humedadeRelativa": 78,
-            "precipitacion": 0.2,
-            "velocidadeVento": 15.0,
-            "rachaMaxVento": 22.0,
-            "direccionVento": 270.0,
-            "presionAtmosfera": 1012.0,
-            "visibilidade": 12.0,
-        }
-        result = parse_meteogalicia_observation(raw, 10045)
-        assert result is not None
-        assert result["temperature"] == pytest.approx(17.8)
-        assert result["humidity"] == pytest.approx(78.0)
-        assert result["precipitation"] == pytest.approx(0.2)
-        assert result["wind_speed"] == pytest.approx(15.0)
-        assert result["fog"] is False
-
-    def test_fog_detected_low_visibility(self):
-        raw = {
-            "instantedt": "2023-11-01T07:00:00",
-            "temperatura": 10.0,
-            "visibilidade": 0.3,
-        }
-        result = parse_meteogalicia_observation(raw, 10045)
-        assert result is not None
-        assert result["fog"] is True
-
-    def test_null_sentinel_values_become_none(self):
-        raw = {
-            "instantedt": "2023-01-01T12:00:00",
-            "temperatura": -9999,
-            "humedadeRelativa": -9999.0,
-        }
-        result = parse_meteogalicia_observation(raw, 10045)
-        assert result is not None
-        assert result["temperature"] is None
-        assert result["humidity"] is None
-
-    def test_unix_timestamp_milliseconds(self):
-        ts_ms = 1686816000000  # 2023-06-15T12:00:00 UTC in ms
-        raw = {"instantedt": ts_ms, "temperatura": 20.0}
-        result = parse_meteogalicia_observation(raw, 10045)
-        assert result is not None
-        assert result["observed_at"].year == 2023

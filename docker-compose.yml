@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-prepai_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./backend/scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -36,6 +36,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./data:/app/data
       - ./backend:/app
@@ -56,6 +58,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./data:/app/data
       - ./backend:/app
@@ -74,6 +78,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-prepai}:${POSTGRES_PASSWORD:-prepai_secure_password}@db:5432/${POSTGRES_DB:-prepai_db}
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./data:/app/data
       - ./backend:/app

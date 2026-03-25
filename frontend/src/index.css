@@ -1,38 +1,263 @@
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Leaflet overrides */
-.leaflet-container {
-  font-family: inherit;
+/* ═══════════════════════════════
+   DESIGN TOKENS (CSS Variables)
+══════════════════════════════════ */
+:root {
+  --brand:         #ff5722;
+  --brand-light:   #ff7035;
+  --accent:        #00e5a0;
+  --surface-bg:    #060609;
+  --surface-card:  #10101e;
+  --surface-hover: #161628;
+  --surface-border: rgba(255,255,255,0.07);
+  --surface-muted: rgba(255,255,255,0.04);
+  --text-primary:  #f0f0f5;
+  --text-secondary: rgba(240,240,245,0.55);
+  --text-muted:    rgba(240,240,245,0.30);
+  --radius-card:   14px;
+  --radius-pill:   9999px;
 }
 
+/* ═══════════════════════════════
+   BASE
+══════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--surface-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════
+   SCROLLBAR
+══════════════════════════════════ */
+::-webkit-scrollbar        { width: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(255,87,34,0.4); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,87,34,0.7); }
+
+/* ═══════════════════════════════
+   GLASSMORPHISM UTILITIES
+══════════════════════════════════ */
+.glass-panel {
+  background: rgba(16, 16, 30, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-border);
+}
+
+.glass-card {
+  background: rgba(22, 22, 40, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255,87,34,0.25);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+
+.glass-card.selected {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand), 0 4px 32px rgba(255,87,34,0.25);
+}
+
+/* ═══════════════════════════════
+   INPUTS DARK STYLE
+══════════════════════════════════ */
+.input-dark {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  width: 100%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.input-dark::placeholder { color: var(--text-muted); }
+.input-dark:focus {
+  border-color: rgba(255,87,34,0.6);
+  box-shadow: 0 0 0 3px rgba(255,87,34,0.12);
+}
+.input-dark option { background: #161628; color: #f0f0f5; }
+
+/* Range slider */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 8px rgba(255,87,34,0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+input[type='range']::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+/* Date input */
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(330deg);
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════
+   BUTTON — Brand gradient
+══════════════════════════════════ */
+.btn-brand {
+  background: linear-gradient(135deg, #ff5722 0%, #ff7035 60%, #ff9e5e 100%);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 16px rgba(255,87,34,0.4);
+}
+.btn-brand::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -75%; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+}
+.btn-brand:hover::before { left: 125%; }
+.btn-brand:hover { box-shadow: 0 6px 24px rgba(255,87,34,0.55); transform: translateY(-1px); }
+.btn-brand:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(255,87,34,0.3); }
+.btn-brand:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ═══════════════════════════════
+   LEAFLET OVERRIDES
+══════════════════════════════════ */
+.leaflet-container { font-family: 'Inter', sans-serif; }
 .leaflet-popup-content-wrapper {
-  border-radius: 0.75rem !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  background: #161628 !important;
+  color: #f0f0f5 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+.leaflet-popup-tip { background: #161628 !important; }
+
+/* ═══════════════════════════════
+   ANIMATIONS
+══════════════════════════════════ */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255,87,34,0); }
+  50%       { box-shadow: 0 0 24px rgba(255,87,34,0.5); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes spinRing {
+  to { transform: rotate(360deg); }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.animate-fade-up   { animation: fadeSlideUp 0.35s ease both; }
+.animate-pulse-glow{ animation: pulseGlow 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════
+   SKELETON / SHIMMER
+══════════════════════════════════ */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.09) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 6px;
 }
 
-/* Animations */
-@keyframes slideIn {
-  from { transform: translateY(-10px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* ═══════════════════════════════
+   TABS
+══════════════════════════════════ */
+.tab-item {
+  position: relative;
+  flex: 1;
+  padding: 0.75rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.tab-item.active { color: var(--brand); }
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-light));
+  border-radius: 2px 2px 0 0;
 }
 
-.slide-in {
-  animation: slideIn 0.2s ease;
+/* ═══════════════════════════════
+   STAT CARD
+══════════════════════════════════ */
+.stat-card {
+  background: rgba(22, 22, 40, 0.6);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-card);
+  padding: 0.875rem;
+  transition: border-color 0.2s ease;
+}
+.stat-card:hover { border-color: rgba(255,87,34,0.2); }
+
+/* ═══════════════════════════════
+   SEARCH SUGGESTIONS
+   ══════════════════════════════════ */
+.suggestions-list {
+  @apply absolute left-0 right-0 overflow-y-auto rounded-xl shadow-2xl;
+  background: #161628;
+  border: 1px solid rgba(255,255,255,0.1);
+  max-height: 12rem;
+  margin-top: 0.25rem;
+  z-index: 100 !important;
+}
+.suggestions-list li {
+  @apply px-3 py-2 cursor-pointer transition-colors text-[0.8rem];
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.suggestions-list li:hover {
+  background: rgba(255,87,34,0.1);
+  color: var(--text-primary);
 }

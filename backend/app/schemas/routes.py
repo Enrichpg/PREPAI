@@ -45,9 +45,12 @@ class RouteRecommendationRequest(BaseModel):
     preferred_elevation: ElevationProfile = ElevationProfile.FLAT
     start_lat: float = Field(..., ge=42.0, le=44.0)
     start_lon: float = Field(..., ge=-9.5, le=-7.5)
-    date: str  # YYYY-MM-DD
-    time_start: int = Field(7, ge=0, le=23)
-    time_end: int = Field(9, ge=0, le=23)
+    end_lat: Optional[float] = Field(None, ge=42.0, le=44.0)
+    end_lon: Optional[float] = Field(None, ge=-9.5, le=-7.5)
+
+    date: Optional[str] = None  # YYYY-MM-DD
+    time_start: Optional[int] = Field(None, ge=0, le=23)
+    time_end: Optional[int] = Field(None, ge=0, le=23)
     max_results: int = Field(5, ge=1, le=10)
     search_radius_km: float = Field(30.0, ge=1, le=100)
 
@@ -88,3 +91,8 @@ class SavedRouteOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class GeocodeOut(BaseModel):
+    lat: float
+    lon: float
+    display_name: str

@@ -50,14 +50,8 @@ FEATURE_COLUMNS = [
     "rain_penalty",
     "wind_penalty",
     "heat_index",      # apparent temperature
-    "event_density",   # new feature: number of events in zone/hour
-    "traffic_level",   # new feature: traffic congestion index
 ]
 
-MODEL_VERSION_FILE = Path(settings.MODEL_PATH) / "model_version.json"
-MODEL_FILE = Path(settings.MODEL_PATH) / "comfort_model.joblib"
-SCALER_FILE = Path(settings.MODEL_PATH) / "comfort_scaler.joblib"
-METRICS_FILE = Path(settings.MODEL_PATH) / "model_metrics.json"
 
 
 def compute_comfort_score_heuristic(row: pd.Series) -> float:
@@ -212,6 +206,26 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 class ComfortModel:
+    @property
+    def _model_path(self) -> Path:
+        return Path(settings.MODEL_PATH)
+
+    @property
+    def _model_file(self) -> Path:
+        return self._model_path / "comfort_model.joblib"
+
+    @property
+    def _scaler_file(self) -> Path:
+        return self._model_path / "comfort_scaler.joblib"
+
+    @property
+    def _version_file(self) -> Path:
+        return self._model_path / "model_version.json"
+
+    @property
+    def _metrics_file(self) -> Path:
+        return self._model_path / "model_metrics.json"
+
     def __init__(self):
         self.model: Optional[XGBRegressor] = None
         self.scaler: Optional[StandardScaler] = None
@@ -220,15 +234,18 @@ class ComfortModel:
         self._ensure_dirs()
 
     def _ensure_dirs(self):
-        Path(settings.MODEL_PATH).mkdir(parents=True, exist_ok=True)
+        try:
+            self._model_path.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            pass  # Running outside Docker — model path (/app) is not accessible
 
     def _load_if_exists(self) -> bool:
-        if MODEL_FILE.exists() and SCALER_FILE.exists():
+        if self._model_file.exists() and self._scaler_file.exists():
             try:
-                self.model = joblib.load(MODEL_FILE)
-                self.scaler = joblib.load(SCALER_FILE)
-                if MODEL_VERSION_FILE.exists():
-                    with open(MODEL_VERSION_FILE) as f:
+                self.model = joblib.load(self._model_file)
+                self.scaler = joblib.load(self._scaler_file)
+                if self._version_file.exists():
+                    with open(self._version_file) as f:
                         info = json.load(f)
                     self.version = info.get("version")
                     self.metrics = info.get("metrics")
@@ -269,40 +286,6 @@ class ComfortModel:
 
         df = pd.read_sql(query.text if hasattr(query, 'text') else query, db_session.connection().connection)
         logger.info(f"Loaded {len(df)} observations for training")
-
-        df = engineer_features(df)
-
-        # Add event_density feature
-        event_query = text("""
-            SELECT zone_id, EXTRACT(HOUR FROM start_time) AS hour, COUNT(*) AS event_count
-            FROM events
-            WHERE start_time >= NOW() - INTERVAL '10 years'
-            GROUP BY zone_id, hour
-        """)
-        event_df = pd.read_sql(event_query.text if hasattr(event_query, 'text') else event_query, db_session.connection().connection)
-        event_density = []
-        for idx, row in df.iterrows():
-            hour = int(row["hour"]) if "hour" in row else 0
-            match = event_df[(event_df["hour"] == hour)]
-            density = match["event_count"].sum() if not match.empty else 0
-            event_density.append(density)
-        df["event_density"] = event_density
-
-        # Add traffic_level feature
-        traffic_query = text("""
-            SELECT zone_id, EXTRACT(HOUR FROM timestamp) AS hour, AVG(traffic_level) AS avg_traffic
-            FROM traffic_data
-            WHERE timestamp >= NOW() - INTERVAL '10 years'
-            GROUP BY zone_id, hour
-        """)
-        traffic_df = pd.read_sql(traffic_query.text if hasattr(traffic_query, 'text') else traffic_query, db_session.connection().connection)
-        traffic_levels = []
-        for idx, row in df.iterrows():
-            hour = int(row["hour"]) if "hour" in row else 0
-            match = traffic_df[(traffic_df["hour"] == hour)]
-            level = match["avg_traffic"].mean() if not match.empty else 0
-            traffic_levels.append(level)
-        df["traffic_level"] = traffic_levels
 
         y = df.apply(compute_comfort_score_heuristic, axis=1)
         X = df[FEATURE_COLUMNS]
@@ -361,16 +344,16 @@ class ComfortModel:
         logger.info(f"Model trained — MAE={mae:.2f}, RMSE={rmse:.2f}, R2={r2:.4f}")
 
         # Save
-        joblib.dump(self.model, MODEL_FILE)
-        joblib.dump(self.scaler, SCALER_FILE)
+        joblib.dump(self.model, self._model_file)
+        joblib.dump(self.scaler, self._scaler_file)
         version_info = {
             "version": self.version,
             "trained_at": datetime.utcnow().isoformat(),
             "metrics": self.metrics,
         }
-        with open(MODEL_VERSION_FILE, "w") as f:
+        with open(self._version_file, "w") as f:
             json.dump(version_info, f, indent=2)
-        with open(METRICS_FILE, "w") as f:
+        with open(self._metrics_file, "w") as f:
             json.dump(version_info, f, indent=2)
 
         return self.metrics
@@ -402,8 +385,6 @@ class ComfortModel:
                 "uv_index": uv, "solar_radiation": radiation,
                 "fog": fog, "hour": hour, "month": month,
                 "visibility": visibility,
-                "event_density": np.random.randint(0, 10),
-                "traffic_level": np.random.uniform(0, 1),
             })
         df = pd.DataFrame(rows)
         df = engineer_features(df)
@@ -430,8 +411,8 @@ class ComfortModel:
     def get_metrics(self) -> Optional[Dict]:
         if self.metrics:
             return self.metrics
-        if METRICS_FILE.exists():
-            with open(METRICS_FILE) as f:
+        if self._metrics_file.exists():
+            with open(self._metrics_file) as f:
                 data = json.load(f)
             self.metrics = data.get("metrics")
             self.version = data.get("version")

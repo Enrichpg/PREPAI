@@ -45,15 +45,17 @@ def compute_match_score(route: RunningRoute, request: RouteRecommendationRequest
     if request.target_distance_km:
         target = request.target_distance_km
         actual = route.distance_km
-        ratio = actual / target if target > 0 else 1
-        if 0.85 <= ratio <= 1.20:
-            pass  # perfect range
-        elif 0.70 <= ratio <= 1.40:
+        
+        # Stricter scoring (Percentage based penalty)
+        diff_pct = abs(actual - target) / target
+        if diff_pct <= 0.10:
+            pass  # perfect match
+        elif diff_pct <= 0.25:
             score -= 15
-        elif 0.50 <= ratio <= 1.60:
-            score -= 30
+        elif diff_pct <= 0.50:
+            score -= 40
         else:
-            score -= 50
+            score -= 80 # Massive penalty for being >50% off
 
     # Surface match
     if request.preferred_surface != SurfaceType.MIXED:
@@ -125,7 +127,7 @@ def get_weather_for_window(
 def predict_comfort_for_window(weather_hours: List[Dict], date_str: str) -> float:
     """Compute average comfort score for a time window."""
     if not weather_hours:
-        return 50.0  # default if no forecast available
+        return 0.0  # If no data, don't assume 50 (neutral), assume worst/uncertain
 
     model = get_comfort_model()
     scores = []
@@ -255,37 +257,53 @@ class RecommendationEngine:
         start_point = f"SRID=4326;POINT({request.start_lon} {request.start_lat})"
         radius_m = request.search_radius_km * 1000
 
+        # Base query: filter by proximity to start point
         query = select(RunningRoute).where(
-            func.ST_DWithin(
-                cast(RunningRoute.start_point, Geography),
-                func.ST_GeogFromText(start_point),
-                radius_m,
+            and_(
+                func.ST_DWithin(
+                    cast(RunningRoute.start_point, Geography),
+                    func.ST_GeogFromText(start_point),
+                    radius_m,
+                ),
+                RunningRoute.distance_km >= 0.5 # NOISE REDUCTION: Ignore segments < 500m
             )
         )
 
-        # Surface filter
-        if request.preferred_surface != SurfaceType.MIXED:
-            query = query.where(
-                (RunningRoute.surface_type == request.preferred_surface) |
-                (RunningRoute.surface_type == SurfaceType.MIXED)
-            )
+        # 1. Proximity to end point (if provided)
+        if request.end_lat is not None and request.end_lon is not None:
+             end_point = f"SRID=4326;POINT({request.end_lon} {request.end_lat})"
+             query = query.where(
+                 func.ST_DWithin(
+                     cast(RunningRoute.end_point, Geography),
+                     func.ST_GeogFromText(end_point),
+                     radius_m,
+                 )
+             )
 
-        # Distance filter (±50% of target)
+        # 2. Surface filter
+        if request.preferred_surface != SurfaceType.MIXED:
+            # If user specified a surface, be strict
+            query = query.where(RunningRoute.surface_type == request.preferred_surface)
+
+        # 3. Distance filter (Harder range ±25% if focused, otherwise ±50%)
         if request.target_distance_km:
-            lo = request.target_distance_km * 0.5
-            hi = request.target_distance_km * 1.6
+            lo = request.target_distance_km * 0.75
+            hi = request.target_distance_km * 1.25
             query = query.where(RunningRoute.distance_km.between(lo, hi))
 
-        # Elevation filter
+        # 4. Elevation filter
         if request.preferred_elevation == ElevationProfile.FLAT:
-            query = query.where(RunningRoute.elevation_profile.in_([ElevationProfile.FLAT]))
+            query = query.where(RunningRoute.elevation_profile == ElevationProfile.FLAT)
         elif request.preferred_elevation == ElevationProfile.MODERATE:
-            query = query.where(RunningRoute.elevation_profile.in_(
-                [ElevationProfile.FLAT, ElevationProfile.MODERATE]
-            ))
+            query = query.where(RunningRoute.elevation_profile == ElevationProfile.MODERATE)
+        elif request.preferred_elevation == ElevationProfile.HILLY:
+            query = query.where(RunningRoute.elevation_profile == ElevationProfile.HILLY)
 
         query = query.limit(50)
-        return self.db.execute(query).scalars().all()
+        candidates = self.db.execute(query).scalars().all()
+
+        return candidates
+
 
     def recommend(self, request: RouteRecommendationRequest) -> List[Dict]:
         """Return top N route recommendations with comfort scores."""
@@ -296,13 +314,17 @@ class RecommendationEngine:
             return []
 
         scored = []
+        # Handle optional date and time
+        target_date = request.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        ts = request.time_start if request.time_start is not None else 7
+        te = request.time_end if request.time_end is not None else 23
+
         for route in candidates:
             zone_id = route.zone_id or 1
             weather_hours = get_weather_for_window(
-                self.db, zone_id, request.date,
-                request.time_start, request.time_end
+                self.db, zone_id, target_date, ts, te
             )
-            comfort_score = predict_comfort_for_window(weather_hours, request.date)
+            comfort_score = predict_comfort_for_window(weather_hours, target_date)
             match_score = compute_match_score(route, request)
             overall = comfort_score * 0.55 + match_score * 0.45
             warnings = build_weather_warnings(weather_hours)

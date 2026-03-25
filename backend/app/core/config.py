@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings
 from typing import List
-import os
 
 
 class Settings(BaseSettings):
@@ -11,8 +10,6 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: str = "5432"
 
-    # MeteoGalicia
-    METEOGALICIA_API_KEY: str = "your_meteogalicia_api_key_here"
     # App
     APP_NAME: str = "PREPAI - Rutas de Running A Coruña"
     APP_VERSION: str = "1.0.0"
@@ -30,29 +27,20 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
-    # External APIs
-    AEMET_API_KEY: str = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlbnJpcXVlLnBhcmRvLmFiQGdtYWlsLmNvbSIsImp0aSI6Ijk3NjZiMDVkLWNmZWYtNDEyMy05ZDc1LWFiODAyYzBiYWIxZCIsImlzcyI6IkFFTUVUIiwiaWF0IjoxNzczNzY0NTEwLCJ1c2VySWQiOiI5NzY2YjA1ZC1jZmVmLTQxMjMtOWQ3NS1hYjgwMmMwYmFiMWQiLCJyb2xlIjoiIn0.lBkGtZ3Izr5xcow6hoaJcR5NRRy2806PfrxDIji7veI"
-    OPENWEATHER_API_KEY: str = ""
-    AQICN_API_KEY: str = ""
-    EVENTBRITE_API_KEY: str = ""
-    TOMTOM_API_KEY: str = ""
-    MAPBOX_TOKEN: str = ""
+    # Active external APIs
+    # 1. AEMET OpenData — API key required
+    AEMET_API_KEY: str = ""
+    AEMET_BASE_URL: str = "https://opendata.aemet.es/opendata/api"
+
+    # 2. OSM Overpass — public, no key required
+    OVERPASS_API_URL: str = "https://overpass-api.de/api/interpreter"
+
+    # 3. Open-Elevation — public, no key required
+    OPEN_ELEVATION_URL: str = "https://api.open-elevation.com/api/v1/lookup"
 
     # Paths
     MODEL_PATH: str = "/app/data/models"
     DATA_PATH: str = "/app/data"
-
-    # AEMET
-    AEMET_BASE_URL: str = "https://opendata.aemet.es/opendata/api"
-
-    # MeteoGalicia (eliminado)
-
-    # Overpass API (OSM)
-    OVERPASS_API_URL: str = "https://overpass-api.de/api/interpreter"
-    OPENWEATHER_BASE_URL: str = "https://api.openweathermap.org/data/2.5"
-    AQICN_BASE_URL: str = "https://api.waqi.info"
-    EVENTBRITE_BASE_URL: str = "https://www.eventbriteapi.com/v3"
-    TOMTOM_BASE_URL: str = "https://api.tomtom.com/traffic/services/4"
 
     # Rate limits
     API_RATE_LIMIT_PER_MINUTE: int = 60
@@ -64,6 +52,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

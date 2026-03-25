@@ -28,7 +28,7 @@ async def get_elevation_for_route(coords: List[List[float]], sample_every: int =
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in sampled]
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 OPEN_ELEVATION_URL,
                 json={"locations": locations},

@@ -1,43 +1,48 @@
 import React from 'react';
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface Props {
-  data: Array<{ distance: number; altitude: number }>;
+  data: { distance: number; altitude: number }[];
 }
 
 export const ElevationChart: React.FC<Props> = ({ data }) => {
-  const minAlt = Math.min(...data.map(d => d.altitude));
-  const maxAlt = Math.max(...data.map(d => d.altitude));
+  // Use the data as is or map if necessary. Recharts can handle the array of objects.
+  const chartData = data;
 
   return (
-    <ResponsiveContainer width="100%" height={100}>
-      <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-        <XAxis
-          dataKey="distance"
-          tickFormatter={v => `${v.toFixed(1)}km`}
-          tick={{ fontSize: 9 }}
-        />
-        <YAxis
-          domain={[Math.max(0, minAlt - 20), maxAlt + 20]}
-          tick={{ fontSize: 9 }}
-          tickFormatter={v => `${v}m`}
-        />
-        <Tooltip
-          formatter={(val: number) => [`${val.toFixed(0)}m`, 'Altitud']}
-          labelFormatter={v => `${parseFloat(v).toFixed(2)} km`}
-        />
-        <Area
-          type="monotone"
-          dataKey="altitude"
-          stroke="#16a34a"
-          fill="#bbf7d0"
-          strokeWidth={2}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <div className="h-24 w-full">
+      <ResponsiveContainer>
+        <AreaChart data={chartData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="gradientElevation" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ff5722" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#ff5722" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Tooltip
+            contentStyle={{
+              background: '#161628',
+              border: '1px solid rgba(255,87,34,0.3)',
+              borderRadius: '8px',
+              fontSize: '10px',
+              padding: '4px 8px',
+            }}
+            labelStyle={{ display: 'none' }}
+            itemStyle={{ color: '#ff7035', fontWeight: 700 }}
+            formatter={(val: number) => [`${Math.round(val)}m`, 'Elevación']}
+          />
+          <Area
+            type="monotone"
+            dataKey="altitude"
+            stroke="#ff5722"
+            strokeWidth={2}
+            fillOpacity={1}
+            fill="url(#gradientElevation)"
+          />
+          <XAxis dataKey="distance" hide />
+          <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 };

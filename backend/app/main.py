@@ -11,7 +11,7 @@ from app.api.routes.weather import router as weather_router
 from app.api.routes.routes_api import router as routes_router
 from app.api.routes.ml_api import router as ml_router
 from app.api.routes.zones import router as zones_router
-from app.api.routes.external_apis import router as external_apis_router
+from app.api.routes.connectivity import router as connectivity_router
 
 setup_logging()
 
@@ -48,7 +48,7 @@ app.include_router(weather_router, prefix="/api/v1")
 app.include_router(routes_router, prefix="/api/v1")
 app.include_router(ml_router, prefix="/api/v1")
 app.include_router(zones_router, prefix="/api/v1")
-app.include_router(external_apis_router, prefix="/api/v1")
+app.include_router(connectivity_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

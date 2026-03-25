@@ -8,12 +8,55 @@ from loguru import logger
 from app.db.database import get_db
 from app.models.routes import RunningRoute, SurfaceType, ElevationProfile
 from app.models.recommendations import RouteRecommendation, SavedRoute
+import httpx
 from app.schemas.routes import (
     RouteOut, RouteRecommendationRequest, RouteRecommendationOut,
-    SaveRouteRequest, SavedRouteOut, WeatherWarning
+    SaveRouteRequest, SavedRouteOut, WeatherWarning, GeocodeOut
 )
 
 router = APIRouter(prefix="/routes", tags=["routes"])
+
+
+@router.get("/geocode", response_model=List[GeocodeOut])
+async def geocode_address(q: str = Query(..., min_length=2)):
+    """
+    Proxy Nominatim geocoding requests to avoid browser rate limits.
+    Restricts search to A Coruña / Galicia region for better relevance.
+    """
+    # Use ArcGIS World Geocoding Service (Reliable and fast)
+    url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+    params = {
+        "f": "json",
+        "outFields": "Match_addr,Addr_type",
+        "maxLocations": 5,
+        "singleLine": f"{q}, A Coruña, Galicia, Spain" if "coruña" not in q.lower() else q,
+        "searchExtent": "-8.6,43.2,-8.0,43.7" # A Coruña / Galicia region
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params, timeout=10.0)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            candidates = data.get("candidates", [])
+            results = []
+            for cand in candidates:
+                addr = cand.get("address", "")
+                loc = cand.get("location", {})
+                
+                results.append(GeocodeOut(
+                    lat=loc.get("y", 0.0),
+                    lon=loc.get("x", 0.0),
+                    display_name=addr
+                ))
+            
+            return results
+    except Exception as e:
+        logger.error(f"Geocoding error (ArcGIS): {e}")
+        return []
+
+
 
 
 @router.get("/", response_model=List[RouteOut])

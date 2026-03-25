@@ -124,12 +124,15 @@ export interface RecommendationRequest {
   preferred_elevation: ElevationProfile;
   start_lat: number;
   start_lon: number;
-  date: string;
-  time_start: number;
-  time_end: number;
+  end_lat?: number;
+  end_lon?: number;
+  date?: string;
+  time_start?: number;
+  time_end?: number;
   max_results: number;
   search_radius_km: number;
 }
+
 
 export interface Zone {
   id: number;

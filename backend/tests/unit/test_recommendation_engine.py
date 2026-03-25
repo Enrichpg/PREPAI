@@ -132,6 +132,37 @@ class TestWeatherSummary:
 
     def test_fog_detected(self):
         hours = [{"temperature": 10, "precipitation": 0, "wind_speed": 5, "wind_gust": 8,
-                  "humidity": 95, "fog": True, "uv_index": 1}]
+                   "humidity": 95, "fog": True, "uv_index": 1}]
         summary = summarise_weather(hours)
         assert summary["has_fog"] is True
+
+
+class TestRecommendationEngineDefaults:
+    @patch("app.services.routes.recommendation.get_weather_for_window")
+    @patch("app.services.routes.recommendation.predict_comfort_for_window")
+    def test_recommend_handles_none_date_time(self, mock_predict, mock_get_weather):
+        from app.services.routes.recommendation import RecommendationEngine
+        from datetime import datetime
+        
+        db = MagicMock()
+        engine = RecommendationEngine(db)
+        
+        # Mock candidate routes
+        route = _make_route()
+        engine.get_candidate_routes = MagicMock(return_value=[route])
+        
+        # Request with None for date and time
+        req = _make_request(date=None, time_start=None, time_end=None)
+        
+        mock_get_weather.return_value = []
+        mock_predict.return_value = 50.0
+        
+        results = engine.recommend(req)
+        
+        assert len(results) > 0
+        # Verify get_weather_for_window was called with today's date and default times
+        today = datetime.now().strftime("%Y-%m-%d")
+        args, _ = mock_get_weather.call_args
+        assert args[2] == today  # target_date
+        assert args[3] == 7      # ts
+        assert args[4] == 23     # te

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend, BarChart, Bar
+  CartesianGrid, BarChart, Bar, Cell
 } from 'recharts';
 import { useHistoricalStats } from '../../hooks/useWeather';
 import { LoadingSpinner } from '../UI/LoadingSpinner';
 import { ErrorAlert } from '../UI/ErrorAlert';
+import { Icon } from '../UI/Icon';
 import type { ModelMetrics, DataIngestionLog } from '../../types';
 
 const MONTHS_ES = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+  'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'
 ];
 
 interface Props {
@@ -40,126 +41,153 @@ export const WeatherDashboard: React.FC<Props> = ({ modelMetrics, ingestionLogs,
   });
 
   return (
-    <div className="space-y-6 p-4">
-      <h2 className="text-xl font-bold text-gray-800">Panel de datos</h2>
+    <div className="space-y-8 p-5 animate-fade-up pb-12">
+      <div className="flex items-center gap-2">
+        <Icon name="chart" size={18} style={{ color: '#ff5722' }} />
+        <h2 className="text-sm font-display tracking-widest text-[#f0f0f5] uppercase font-bold" style={{ letterSpacing: '0.15em' }}>
+          Análisis de Datos
+        </h2>
+      </div>
 
-      {/* Status bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── Status Metrics ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
         <StatCard
-          title="Última actualización"
-          value={lastUpdate ? new Date(lastUpdate).toLocaleDateString('es-ES') : 'Sin datos'}
-          icon="🔄"
+          title="ÚLTIMA ACTUALIZACIÓN"
+          value={lastUpdate ? new Date(lastUpdate).toLocaleDateString('es-ES') : 'SIN DATOS'}
+          icon="sync"
+          color="#ff5722"
         />
         <StatCard
-          title="Versión modelo"
-          value={modelMetrics?.version || 'No entrenado'}
-          icon="🤖"
+          title="MODELO"
+          value={modelMetrics?.version || 'PENDIENTE'}
+          icon="robot"
+          color="#00e5a0"
         />
         {modelMetrics?.metrics && (
           <>
             <StatCard
-              title="MAE modelo"
-              value={`${modelMetrics.metrics.mae.toFixed(2)} pts`}
-              icon="📊"
+              title="MAE"
+              value={`${modelMetrics.metrics.mae.toFixed(2)} PTS`}
+              icon="bolt"
+              color="#ffc107"
             />
             <StatCard
-              title="R² modelo"
+              title="R² ACCURACY"
               value={modelMetrics.metrics.r2.toFixed(3)}
-              icon="✅"
+              icon="check"
+              color="#00e5a0"
             />
           </>
         )}
       </div>
 
-      {/* Historical temperature & precipitation */}
-      {loading && <LoadingSpinner message="Cargando estadísticas..." />}
+      {/* ── Historical Charts ─────────────────────────────── */}
+      {loading && <LoadingSpinner message="Analizando historial..." />}
       {error && <ErrorAlert message={error} />}
 
       {!loading && stats.length > 0 && (
-        <>
+        <div className="space-y-8">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Temperatura media mensual (°C)</h3>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`${v?.toFixed(1)}°C`, 'Temperatura']} />
-                <Line type="monotone" dataKey="avg_temperature" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <h3 className="text-[10px] font-bold text-muted mb-4 uppercase tracking-[0.1em] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span> TEMPERATURA MEDIA MENSUAL (°C)
+            </h3>
+            <div className="h-[180px] w-full">
+              <ResponsiveContainer>
+                <LineChart data={monthlyData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#10101e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '11px' }}
+                    itemStyle={{ color: '#ff5722' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="avg_temperature"
+                    stroke="#ff5722"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#ff5722', strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: '#fff' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Precipitación media mensual (mm)</h3>
-            <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`${v?.toFixed(1)} mm`, 'Precipitación']} />
-                <Bar dataKey="avg_precipitation" fill="#60a5fa" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <h3 className="text-[10px] font-bold text-muted mb-4 uppercase tracking-[0.1em] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-500"></span> PRECIPITACIÓN MEDIA (MM)
+            </h3>
+            <div className="h-[150px] w-full">
+              <ResponsiveContainer>
+                <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#10101e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '11px' }}
+                    cursor={{ fill: 'rgba(255,87,34,0.05)' }}
+                  />
+                  <Bar dataKey="avg_precipitation" radius={[4, 4, 0, 0]}>
+                    {monthlyData.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#00e5a0' : 'rgba(0,229,160,0.6)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Días con niebla (%)</h3>
-            <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`${v?.toFixed(1)}%`, 'Niebla']} />
-                <Bar dataKey="fog_pct" fill="#94a3b8" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </>
+        </div>
       )}
 
-      {/* Ingestion logs */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Últimas ingestas de datos</h3>
+      {/* ── Ingestion Logs ─────────────────────────────────── */}
+      <div className="pt-4">
+        <h3 className="text-[10px] font-bold text-muted mb-4 uppercase tracking-[0.2em]">RITMO DE INGESTA</h3>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {ingestionLogs.map(log => (
-            <div key={log.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-              <div>
-                <span className={`font-medium ${log.status === 'success' ? 'text-green-700' : log.status === 'failed' ? 'text-red-600' : 'text-yellow-700'}`}>
-                  {log.status === 'success' ? '✓' : log.status === 'failed' ? '✗' : '⋯'} {log.source}
-                </span>
-                <span className="text-gray-500 ml-2">{log.task_name}</span>
+          {ingestionLogs.map(log => {
+            const isSuccess = log.status === 'success';
+            return (
+              <div key={log.id} className="flex items-center justify-between text-[11px] glass-card p-3" style={{ borderLeftWidth: 2, borderLeftColor: isSuccess ? '#00e5a0' : '#ef4444' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ background: isSuccess ? '#00e5a0' : '#ef4444', boxShadow: `0 0 8px ${isSuccess ? '#00e5a0' : '#ef4444'}` }}
+                  ></div>
+                  <div>
+                    <span className="font-bold text-white block uppercase tracking-wider">{log.source}</span>
+                    <span className="text-[9px] text-muted">{log.task_name}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-mono">{log.records_inserted} REC</div>
+                  <div className="text-[9px] text-muted">{new Date(log.started_at).toLocaleTimeString('es-ES')}</div>
+                </div>
               </div>
-              <div className="text-right text-gray-400">
-                <div>{new Date(log.started_at).toLocaleString('es-ES')}</div>
-                <div>{log.records_inserted} insertados</div>
-              </div>
-            </div>
-          ))}
-          {ingestionLogs.length === 0 && (
-            <p className="text-sm text-gray-400 italic">Sin registros de ingesta</p>
-          )}
+            );
+          })}
         </div>
       </div>
 
-      {/* Feature importances */}
+      {/* ── Model Insights ─────────────────────────────────── */}
       {modelMetrics?.metrics?.feature_importances && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Importancia de variables (modelo ML)</h3>
-          <div className="space-y-1">
+        <div className="pt-4">
+          <h3 className="text-[10px] font-bold text-muted mb-4 uppercase tracking-[0.2em]">IMPORTANCIA DE VARIABLES</h3>
+          <div className="space-y-2">
             {Object.entries(modelMetrics.metrics.feature_importances)
               .sort(([, a], [, b]) => b - a)
-              .slice(0, 10)
+              .slice(0, 8)
               .map(([feat, imp]) => (
-                <div key={feat} className="flex items-center gap-2 text-xs">
-                  <span className="w-32 text-gray-600 truncate">{feat}</span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-2">
+                <div key={feat} className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider">
+                    <span className="text-white">{feat.replace('_', ' ')}</span>
+                    <span className="text-accent-500">{(imp * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className="bg-green-500 h-2 rounded-full"
+                      className="h-full bg-gradient-to-r from-brand-500 to-brand-300"
                       style={{ width: `${(imp * 100).toFixed(1)}%` }}
                     />
                   </div>
-                  <span className="text-gray-500 w-12 text-right">{(imp * 100).toFixed(1)}%</span>
                 </div>
               ))}
           </div>
@@ -169,10 +197,12 @@ export const WeatherDashboard: React.FC<Props> = ({ modelMetrics, ingestionLogs,
   );
 };
 
-const StatCard: React.FC<{ title: string; value: string; icon: string }> = ({ title, value, icon }) => (
-  <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-    <div className="text-lg mb-1">{icon}</div>
-    <div className="text-xs text-gray-500">{title}</div>
-    <div className="text-sm font-semibold text-gray-800 mt-0.5">{value}</div>
+const StatCard: React.FC<{ title: string; value: string; icon: any; color: string }> = ({ title, value, icon, color }) => (
+  <div className="stat-card flex flex-col gap-2">
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] font-bold text-muted tracking-widest leading-none">{title}</span>
+      <Icon name={icon} size={14} style={{ color }} />
+    </div>
+    <div className="text-sm font-bold text-white tracking-wide">{value}</div>
   </div>
 );
